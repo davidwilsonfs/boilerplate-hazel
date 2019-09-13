@@ -1,0 +1,100 @@
+service: notes-backend-hazel
+
+custom:
+  allowedHeaders:
+    - Accept
+    - Content-Type
+    - Content-Length
+    - Authorization
+    - X-Amz-Date
+    - X-Api-Key
+    - X-Amz-Security-Token
+    - X-Amz-User-Agent
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  region: sa-east-1
+  stage: dev
+  memorySize: 256
+  timeout: 10
+  endpointType: regional
+  environment:
+    NOTES_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:PutItem
+        - dynamodb:DeleteItem
+        - dynamodb:UpdateItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.NOTES_TABLE}"
+
+functions:
+  add-note:
+    handler: api/add-note.handler
+    description: POST /note
+    events:
+      - http:
+          path: notes
+          method: post
+          cors:
+            origin: "*"
+            headers: ${self:custom.allowedHeaders}
+  get-note:
+    handler: api/get-note.handler
+    description: GET /note/{note_id}
+    events:
+      - http:
+          path: notes/{note_id}
+          method: get
+          cors:
+            origin: "*"
+            headers: ${self:custom.allowedHeaders}
+  get-notes:
+    handler: api/get-notes.handler
+    description: GET /notes
+    events:
+      - http:
+          path: notes
+          method: get
+          cors:
+            origin: "*"
+            headers: ${self:custom.allowedHeaders}
+  update-note:
+    handler: api/update-note.handler
+    description: PATCH /note
+    events:
+      - http:
+          path: notes/{note_id}
+          method: patch
+          cors:
+            origin: "*"
+            headers: ${self:custom.allowedHeaders}
+  delete-note:
+    handler: api/delete-note.handler
+    description: DELETE /note
+    events:
+      - http:
+          path: notes/{note_id}
+          method: delete
+          cors:
+            origin: "*"
+            headers: ${self:custom.allowedHeaders}
+
+resources:
+  Resources:
+    NotesTable:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:provider.environment.NOTES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: note_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: note_id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
